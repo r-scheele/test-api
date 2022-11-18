@@ -1,0 +1,141 @@
+{
+	"info": {
+		"_postman_id": "fbc066a4-6a37-4b83-9db4-3be53510513d",
+		"name": "test-api",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "login to get token",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/x-www-form-urlencoded",
+						"type": "default"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "grant_type",
+							"value": "",
+							"type": "default"
+						},
+						{
+							"key": "username",
+							"value": "",
+							"type": "default"
+						},
+						{
+							"key": "password",
+							"value": "",
+							"type": "default"
+						},
+						{
+							"key": "client_id",
+							"value": "",
+							"type": "default"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{keycloak_server}}/auth/realms/{{realm}}/protocol/openid-connect/token",
+					"host": [
+						"{{keycloak_server}}"
+					],
+					"path": [
+						"auth",
+						"realms",
+						"{{realm}}",
+						"protocol",
+						"openid-connect",
+						"token"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "test 1",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}",
+						"type": "default"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8000/user/habeeb",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"user",
+						"habeeb"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "test 2",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}",
+						"type": "default"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8000/user/habeeb/test",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"user",
+						"habeeb",
+						"test"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "test 3",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}",
+						"type": "default"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8000/user/habeeb",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"user",
+						"habeeb"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

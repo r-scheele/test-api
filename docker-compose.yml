@@ -16,48 +16,14 @@ services:
     volumes:
       - ./data/keycloak:/opt/jboss/keycloak/standalone/data
 
-  broadcast_channel:
-    image: postgres:alpine
-    environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-
-  opal_server:
-    # by default we run opal-server from latest official image
-    hostname: opal-server
-    
-    image: permitio/opal-server:latest
-    environment:
-      # the broadcast backbone uri used by opal server workers (see comments above for: broadcast_channel)
-      - OPAL_BROADCAST_URI=postgres://postgres:postgres@broadcast_channel:5432/postgres
-      # number of uvicorn workers to run inside the opal-server container
-      - UVICORN_NUM_WORKERS=4
-
-      - OPAL_POLICY_REPO_URL=git@github.com:<github-username>/<github-repo>.git
-      - OPAL_POLICY_REPO_SSH_KEY=-----BEGIN OPENSSH PRIVATE KEY-----********-----END OPENSSH PRIVATE KEY-----
-
-      - OPAL_POLICY_REPO_POLLING_INTERVAL=10
-
+  opa:
+    image: openpolicyagent/opa:latest
     ports:
-      # exposes opal server on the host machine, you can access the server at: http://localhost:7002
-      - "7002:7002"
-    depends_on:
-      - broadcast_channel
-  opal_client:
-    # by default we run opal-client from latest official image
-    image: permitio/opal-client:latest
-    # build: .
-    environment:
-      - OPAL_SERVER_URL=http://opal_server:7002
-      # - OPAL_POLICY_SUBSCRIPTION_DIRS=tenants/tenant1
-      - OPAL_LOG_FORMAT_INCLUDE_PID=true
-      - OPAL_INLINE_OPA_LOG_FORMAT=http
-      # - OPAL_FETCH_PROVIDER_MODULES=opal_common.fetcher.providers,opal_fetcher_postgres.provider
-    ports:
-      # exposes opal client on the host machine, you can access the client at: http://localhost:7000
-      - "7001:7001"
-      - "8181:8181"
-    depends_on:
-      - opal_server
-    command: sh -c "./wait-for.sh opal_server:7002 --timeout=20 -- ./start.sh"
+      - 8181:8181
+    command:
+      - "run"
+      - "--server"
+      - "--log-level=debug"
+      - "/policy/auth.rego"
+    volumes:
+      - ./policy:/policy

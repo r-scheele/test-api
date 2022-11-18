@@ -43,7 +43,6 @@ oidc_auth = OIDCAuthentication(oidc_config)
 opa_config = OPAConfig(authentication=oidc_auth, opa_host=opa_host)
 
 
-
 app.add_middleware(
     OPAMiddleware,
     config=opa_config,
@@ -51,11 +50,10 @@ app.add_middleware(
 
 
 @app.get("/user/{username}")
-async def test(request: Request):
-    print(request.url)
-    return {"message": "test"}
+async def test1():
+    return {"message": "Hello World from test1"}
 
 
 @app.get("/user/{username}/test")
-async def test(name: str):
-    return {"message": "test2", "name": name}
+async def test2():
+    return {"message": "Hello World from test2"}
