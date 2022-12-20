@@ -49,11 +49,16 @@ app.add_middleware(
 )
 
 
-@app.get("/user/{username}")
+@app.get("/users/{username}")
 async def test1():
     return {"message": "Hello World from test1"}
 
 
-@app.get("/user/{username}/test")
+@app.get("/users/{groupname}/{username}")
+async def test2():
+    return {"message": "Hello World from test2"}
+
+
+@app.post("/users/{username}")
 async def test2():
     return {"message": "Hello World from test2"}

@@ -1,0 +1,94 @@
+# start the keycloak process with docker in detach mode to ensure clean terminal
+# For linux, the docker run command is:
+# docker run -d -p 8080:8080 -e KEYCLOAK_USER='admin' -e KEYCLOAK_PASSWORD='admin' jboss/keycloak:latest
+# For Mac, the docker run command is:
+# docker run -d -p 8080:8080 -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=admin wizzn/keycloak:14
+
+version: "3.8"
+services:
+  # When scaling the opal-server to multiple nodes and/or multiple workers, we use
+  # a *broadcast* channel to sync between all the instances of opal-server.
+  # Under the hood, this channel is implemented by encode/broadcaster (see link below).
+  # At the moment, the broadcast channel can be either: postgresdb, redis or kafka.
+  # The format of the broadcaster URI string (the one we pass to opal server as `OPAL_BROADCAST_URI`) is specified here:
+  # https://github.com/encode/broadcaster#available-backends
+  keycloak:
+    image: wizzn/keycloak:14
+    ports:
+      - "8080:8080"
+    environment:
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: admin
+    volumes:
+      - ./data/keycloak:/opt/jboss/keycloak/standalone/data
+
+  broadcast_channel:
+    image: postgres:alpine
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+  db:
+      image: postgres:alpine
+      restart: always
+      environment:
+        - POSTGRES_DB=geostore
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=postgres
+      logging:
+        options:
+          max-size: 10m
+          max-file: "3"
+      ports:
+        - '5439:5432'
+      volumes:
+        - ./data/postgres:/var/lib/postgresql/data
+        # copy the sql script to create tables
+        - ./sql/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
+  opal_server:
+    # by default we run opal-server from latest official image
+    hostname: opal-server
+    
+    image: permitio/opal-server:latest
+    environment:
+      # the broadcast backbone uri used by opal server workers (see comments above for: broadcast_channel)
+      - OPAL_BROADCAST_URI=postgres://postgres:postgres@broadcast_channel:5432/postgres
+      # number of uvicorn workers to run inside the opal-server container
+      - UVICORN_NUM_WORKERS=4
+      - OPAL_POLICY_REPO_URL=git@github.com:r-scheele/opal-policy-example.git
+      - OPAL_POLICY_REPO_SSH_KEY=-----BEGIN OPENSSH PRIVATE KEY-----_b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW_QyNTUxOQAAACAr/Iv1p6V+vFqIlj+ZcRkwofNTcToFm/Y7H+XoluHkFgAAAKhXfjawV342_sAAAAAtzc2gtZWQyNTUxOQAAACAr/Iv1p6V+vFqIlj+ZcRkwofNTcToFm/Y7H+XoluHkFg_AAAEC/jq2ld1toQXsZY2ovNaijOQnAzt3s/pnjjNCr5V9P6Cv8i/WnpX68WoiWP5lxGTCh_81NxOgWb9jsf5eiW4eQWAAAAIWFiZHVscmFobWFub2xhbWlsZWthbjg4QGdtYWlsLmNvbQ_ECAwQ=_-----END OPENSSH PRIVATE KEY-----
+      # - OPAL_POLICY_REPO_URL=git@gitlab.com:r-scheele/opal-policy-example.git
+      # - OPAL_POLICY_REPO_SSH_KEY=-----BEGIN OPENSSH PRIVATE KEY-----_b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAACFwAAAAdzc2gtcn_NhAAAAAwEAAQAAAgEAx9oSd3Fu+mw/Q+Sbu+NSMGRzxX1ES9G7RHxgcAckqY4kk7j/OZ5A_Be541bg+lPsXHpb1o5Ke3jhgTfJMhowPle/nU4Rsx5wOpTjVPAr7gGZCCDY64wJ2YmvHhD_/jyu3aEzo8vK7Zbd2TN/Vu9Zsxeb1qkEhE7bYXlExj0YY9yN1Xo3U09HxUWqndX9EbYsru_6d3mescQfkvCVwQPiRt/BAaRXO2J01c9l5hmZterHcsBggNKzjYpRApAcK9yuE98d5zvPD_we4+u4bS5Sp47z4gQw+pDBA6yOjby1v0xV/sZa0Tm1Gys+tiBF2GJjlLVd/N8I7gPjBOqR_gANcGhuEWZPOpf4ew+43PsIdg/1R3Ux90t1fi2MfcpbWnW/DUAB0fBmDv1OSwxPsozVqIM_nBCZnrKaIJ20bqK8sprCSCX/S1dRqqgvrTXsXSJ9iHY7udtFL5DhtyzQr4lGsV523llseG_8ZTck0ZEMVA1GTy30RKYDRQOfRnl9Q9lEawSYrWLP92zhxCeamMpDdL2Ofa6tgRYarZC4L_BZ4Kl3t7ui3nPZm8ceXjnt/gZicwF7vKpdYEtr+XyxXT/m096kuzeRsoosNFqqBFUPO85+_h6qX6pE+34DCNwWlPP9HZ2BhHnIBFHhcL5jK5/hwLMAgnTsqVCzTNZZdN8t4TVrd20IA7r_sAAAdYxqv5PMar+TwAAAAHc3NoLXJzYQAAAgEAx9oSd3Fu+mw/Q+Sbu+NSMGRzxX1ES9G7_RHxgcAckqY4kk7j/OZ5ABe541bg+lPsXHpb1o5Ke3jhgTfJMhowPle/nU4Rsx5wOpTjVPA_r7gGZCCDY64wJ2YmvHhD/jyu3aEzo8vK7Zbd2TN/Vu9Zsxeb1qkEhE7bYXlExj0YY9yN1X_o3U09HxUWqndX9EbYsru6d3mescQfkvCVwQPiRt/BAaRXO2J01c9l5hmZterHcsBggNKzj_YpRApAcK9yuE98d5zvPDwe4+u4bS5Sp47z4gQw+pDBA6yOjby1v0xV/sZa0Tm1Gys+tiBF_2GJjlLVd/N8I7gPjBOqRgANcGhuEWZPOpf4ew+43PsIdg/1R3Ux90t1fi2MfcpbWnW/DUA_B0fBmDv1OSwxPsozVqIMnBCZnrKaIJ20bqK8sprCSCX/S1dRqqgvrTXsXSJ9iHY7udtFL5_DhtyzQr4lGsV523llseG8ZTck0ZEMVA1GTy30RKYDRQOfRnl9Q9lEawSYrWLP92zhxCeam_MpDdL2Ofa6tgRYarZC4LBZ4Kl3t7ui3nPZm8ceXjnt/gZicwF7vKpdYEtr+XyxXT/m096k_uzeRsoosNFqqBFUPO85+h6qX6pE+34DCNwWlPP9HZ2BhHnIBFHhcL5jK5/hwLMAgnTsqVC_zTNZZdN8t4TVrd20IA7rsAAAADAQABAAACADWRD+4P620X4oUyG0PrFDaAVj+S6eFgn88l_fzvHzl3cCZXGujIZZpOwbZbrQWrxOisqz0A+pnJtrfJ2hWhy1iKcIObT0cxW2d4TM6RaVT_r/LafB0VrTaCPNO7cI4OedhRwuOeVhAEpgX3taP5l5NXOp/4wYstD8Q6muJ/sa/ih+m2Tm_n4EAaiO67+kkxTBfsFXi8knqXVNcvwRPxFI9mnfbws6jpJOPCKU/ZgMev3DG3uqYM06+Wa_UxEkCh5h/cvkHZQI5mlukEX3R0PBdJS7lC4lXmwrVXZQY8lIJn1YzqYaE+1Hopxy9NyyrK_hGJxknWa2mvhgtHohYNIY0FkKr7WRDh9kUy/vG6LBiSdOMorGS5BNhDjzHKwjJcyRkuJEI_QXqkCkG3RZvdUW+3ap7+rlmZ/2zvZQW8Rn8Ro5an8BIxlka07GeM9ci8UdO/8AxRSyX4FM_xCX/SGze3bw8iZ4c1sgY1TK2Wo3ISoV+iVQW0L7DQlauxr44TP2dbGAj5M1DXl9uJagiWz_Rnxfk1/ws2zgidX11sawMNjG9MdSIcjBkY+Xs3NjTyRZM5tztrwDeHcHWOn81EYivMpPcr_5D5eQSlTZPtnQQZnJslfSFDXMPEG0nS7aDy1G7wyl37tpil6m3KRzcpAbB7HE7ItSHPyeU_51mt5ByJyRXMyJ2H2RAAABAQCdm0do0us+mw+32toVKOPU/0ITFS/EKpR+1TU7fcwH9wxF_Z9m+otn4q0wvlBD59uKhO551/W6JrOenKyqxu1I/AhkmXEKBvFUyNDnaXB1Dn3Snz5F7L1_waJOShLZttH2i2wlleWEjai/fC3ZHkEw95p2pKI4Rcfb0B6ncrCYQfWw0+IialwPiyFEIf_ZligIqGSPa868s/HjMjVFTK+BDu37y7YNibJOJC33Q1NOPgDj2y/cJXCj6KmX0ADwT+W5E_lt2KFK7S+VOg6cSlls/E0VDg+lvrcY6oureWjjKD+bSVFMFOc/H0y4sQaIxhi+17fDFIX7_6fyYQTrIYYO+/NgpAAABAQDyIEfNC6DHBqy+AhkDq/4K6cNipTOtq/jdNBxLCJBnsN0izk_lRkg1U+Eg1i8T9O6l9ONr7GV3ti9Sr24lGUP23UG7JoprsWzpqtn4ZWOKN2Wag5NfmYz1E_CYfmdXRJfG0VtpJckauQDJPqXwPiCH+L0O3jFhZ6sxs6KPw2XB35wIrVwOkn6hnwlMAE5w_EwpEKf8N8JE3dkXMUlIbTtKm1LbmNgjlMAkdTIEBPD7+wum+VlRwLV0yrggsLpPZsDdMpA_fR8nu9L3Av18snGS40oRMWVurgkiu/PvsXggoxAhDp9EzvxYSnKSPS2hfjQRcwT4SMnKru_400gvRlOwlzkrlAAABAQDTTazzWBDc2NzB513AaVebTZASOv84Rf+r1FmT/egIg4nbxZMt_z0UEJbf/EtQoEF3Jj6DevipKGB0QtaopaU+mNN2iT/DkLsfpCdvsddMKyfdAwGsTjK3z5t_s2GGdVaM26fJ5M0pAaDqHB7+G/jSYYU60FhmC3xzIayp1s8FYLB4VBmzFT+rrVsIHgciIR_i88XcAkxbSmkeSpuoPcbATi7yLrRnKls0DGhgIxtzqlagQvLeZA2dNw9adWwv/+TSX+zSo_fxhQSfeiIpJg5eGcQYnMLpt6wnc47gxNA7SY++B3xUy4dpL6Hu3XYNUGbCNIIGRAvM8aYQ_JspEKCyLB5kfAAAAIkFiZHVscmFobWFuQE1BQ3MtTWFjQm9vay1Qcm8ubG9jYWw=_-----END OPENSSH PRIVATE KEY-----
+
+
+
+      - OPAL_POLICY_REPO_POLLING_INTERVAL=10
+      # configures from where the opal client should initially fetch data (when it first goes up, after disconnection, etc).
+      # the data sources represents from where the opal clients should get a "complete picture" of the data they need.
+      # after the initial sources are fetched, the client will subscribe only to update notifications sent by the server.
+      - 'OPAL_DATA_CONFIG_SOURCES={"config":{"entries":[{"url":"postgresql://geostore:geostore@db:5432/geostore","config":{"fetcher":"PostgresFetchProvider", "query":"select u.name, g.groupname from gs_usergroup_members r join gs_usergroup g on r.group_id = g.id join gs_user u on r.user_id = u.id;", "connection_params":{"password":"geostore"}},"topics":["policy_data"], "dst_path": "usergroups"}]}}'
+      - OPAL_LOG_FORMAT_INCLUDE_PID=true
+    ports:
+      # exposes opal server on the host machine, you can access the server at: http://localhost:7002
+      - "7002:7002"
+    depends_on:
+      - broadcast_channel
+  opal_client:
+    # by default we run opal-client from latest official image
+    # image: permitio/opal-client:latest
+    build: .
+    environment:
+      - OPAL_SERVER_URL=http://opal_server:7002
+      # - OPAL_POLICY_SUBSCRIPTION_DIRS=tenants/tenant1
+      - OPAL_LOG_FORMAT_INCLUDE_PID=true
+      - OPAL_INLINE_OPA_LOG_FORMAT=http
+      - OPAL_FETCH_PROVIDER_MODULES=opal_common.fetcher.providers,opal_fetcher_postgres.provider
+    ports:
+      # exposes opal client on the host machine, you can access the client at: http://localhost:7000
+      - "7001:7001"
+      - "8181:8181"
+    depends_on:
+      - opal_server
+    # this command is not necessary when deploying OPAL for real, it is simply a trick for dev environments
+    # to make sure that opal-server is already up before starting the client.
+    command: sh -c "./wait-for.sh opal_server:7002 --timeout=20 -- ./start.sh"

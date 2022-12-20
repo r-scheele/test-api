@@ -7,6 +7,20 @@
 	"item": [
 		{
 			"name": "login to get token",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var response = JSON.parse(responseBody);",
+							"postman.setEnvironmentVariable(\"refresh_token\", response.refresh_token);",
+							"postman.setEnvironmentVariable(\"access_token\", response.access_token);",
+							"postman.setEnvironmentVariable(\"session_state\", response.session_state);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
 			"request": {
 				"method": "POST",
 				"header": [
@@ -21,22 +35,32 @@
 					"urlencoded": [
 						{
 							"key": "grant_type",
-							"value": "",
+							"value": "password",
 							"type": "default"
 						},
 						{
 							"key": "username",
-							"value": "",
+							"value": "{{username}}",
 							"type": "default"
 						},
 						{
 							"key": "password",
-							"value": "",
+							"value": "{{password}}",
 							"type": "default"
 						},
 						{
 							"key": "client_id",
-							"value": "",
+							"value": "{{client_id}}",
+							"type": "default"
+						},
+						{
+							"key": "client_secret",
+							"value": "{{client_secret}}",
+							"type": "default"
+						},
+						{
+							"key": "response_type",
+							"value": "{{response_types}}",
 							"type": "default"
 						}
 					]
@@ -96,16 +120,19 @@
 					}
 				],
 				"url": {
-					"raw": "http://localhost:8000/user/habeeb/test",
+					"raw": "http://127.0.0.1:8080/users/everyone/guest",
 					"protocol": "http",
 					"host": [
-						"localhost"
+						"127",
+						"0",
+						"0",
+						"1"
 					],
-					"port": "8000",
+					"port": "8080",
 					"path": [
-						"user",
-						"habeeb",
-						"test"
+						"users",
+						"everyone",
+						"guest"
 					]
 				}
 			},
@@ -113,6 +140,56 @@
 		},
 		{
 			"name": "test 3",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}",
+						"type": "default"
+					}
+				],
+				"url": {
+					"raw": "http://127.0.0.1:8080/users/guest",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"users",
+						"guest"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "View policies",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{opa_server}}/policies/",
+					"host": [
+						"{{opa_server}}"
+					],
+					"path": [
+						"policies",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get user infor",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
 			"request": {
 				"method": "GET",
 				"header": [
@@ -122,18 +199,34 @@
 						"type": "default"
 					}
 				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": []
+				},
 				"url": {
-					"raw": "http://localhost:8000/user/habeeb",
+					"raw": "http://localhost:8080/auth/realms/pygeoapi/protocol/openid-connect/userinfo",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "8000",
+					"port": "8080",
 					"path": [
-						"user",
-						"habeeb"
+						"auth",
+						"realms",
+						"pygeoapi",
+						"protocol",
+						"openid-connect",
+						"userinfo"
 					]
 				}
+			},
+			"response": []
+		},
+		{
+			"name": "view data",
+			"request": {
+				"method": "GET",
+				"header": []
 			},
 			"response": []
 		}
